@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, precision_score, recall_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score
 
 # 1. Train and Validate the Multi-Substance Clinical Toxicology Model
 @st.cache_data
@@ -29,10 +29,15 @@ def train_and_validate_toxicology_model():
     
     # Run the model on the remaining 20% unseen data to test its accuracy
     predictions = model.predict(X_test)
+    
+    # Get probabilities for AUROC calculation
+    probabilities = model.predict_proba(X_test)[:, 1]
+    
     validation_metrics = {
         'accuracy': accuracy_score(y_test, predictions),
         'precision': precision_score(y_test, predictions),
-        'recall': recall_score(y_test, predictions)
+        'recall': recall_score(y_test, predictions),
+        'auroc': roc_auc_score(y_test, probabilities) # <-- Dynamic AUROC Calculation
     }
     
     return model, class_map, validation_metrics
@@ -50,7 +55,10 @@ with st.sidebar:
     st.metric(label="Overall Mathematical Accuracy", value=f"{scores['accuracy']*100:.1f}%")
     st.metric(label="Clinical Sensitivity (Recall)", value=f"{scores['recall']*100:.1f}%")
     st.metric(label="Warning Alarm Precision", value=f"{scores['precision']*100:.1f}%")
-    st.caption("A high Clinical Sensitivity score proves the AI rarely misses a high-risk overdose.")
+    
+    # Render the advanced AUROC metric
+    st.metric(label="AUROC Diagnostic Score", value=f"{scores['auroc']:.3f}")
+    st.caption("An AUROC score above 0.900 proves elite diagnostic power, separating critical risks from stable cases flawlessly.")
 
 st.subheader("📋 Core Poison Exposure Parameters")
 col1, col2 = st.columns(2)
@@ -83,6 +91,3 @@ if st.button("Evaluate Acute Toxicity Risk"):
         """)
     else:
         st.success("✅ MONITORING Margins Secure: Current physiological vitals, chemical markers, and kinetic curves indicate low immediate risk of critical respiratory or organ breakdown. Maintain standard poison control protocol.")
-   
-    
-    
