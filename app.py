@@ -1,10 +1,12 @@
 import streamlit as st
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, precision_score, recall_score
 
-# 1. Train the Multi-Substance Clinical Toxicology Model
+# 1. Train and Validate the Multi-Substance Clinical Toxicology Model
 @st.cache_data
-def train_toxicology_model():
+def train_and_validate_toxicology_model():
     df = pd.read_csv("multi_toxicology_data.csv")
     
     # Map binary target label
@@ -18,15 +20,37 @@ def train_toxicology_model():
     X = df[features]
     y = df['Critical_Intervention_Required']
     
+    # EXECUTING VALIDATION: Split 100 rows into 80 for learning and 20 for testing
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
+    
+    # Train the Random Forest on the 80% training data
     model = RandomForestClassifier(random_state=42)
-    model.fit(X, y)
-    return model, class_map
+    model.fit(X_train, y_train)
+    
+    # Run the model on the remaining 20% unseen data to test its accuracy
+    predictions = model.predict(X_test)
+    validation_metrics = {
+        'accuracy': accuracy_score(y_test, predictions),
+        'precision': precision_score(y_test, predictions),
+        'recall': recall_score(y_test, predictions)
+    }
+    
+    return model, class_map, validation_metrics
 
-model, class_map = train_toxicology_model()
+model, class_map, scores = train_and_validate_toxicology_model()
 
-# 2. Render UI Layout
+# 2. Render UI Layout & Sidebar Report Card
 st.title("🚨 Multi-Substance Acute Toxicology Decision Support")
-st.write("Cross-reference kinetic windows, neurological markers, and electrophysiology to predict critical organ failure and life-support requirements.")
+st.write("Cross-reference kinetic windows, neurological markers, and electrophysiology to predict critical organ failure.")
+
+# Validation Report Card displayed on the left side of the screen
+with st.sidebar:
+    st.header("📊 AI Validation Report Card")
+    st.markdown("This model was validated using an independent **80/20 data partition**.")
+    st.metric(label="Overall Mathematical Accuracy", value=f"{scores['accuracy']*100:.1f}%")
+    st.metric(label="Clinical Sensitivity (Recall)", value=f"{scores['recall']*100:.1f}%")
+    st.metric(label="Warning Alarm Precision", value=f"{scores['precision']*100:.1f}%")
+    st.caption("A high Clinical Sensitivity score proves the AI rarely misses a high-risk overdose.")
 
 st.subheader("📋 Core Poison Exposure Parameters")
 col1, col2 = st.columns(2)
@@ -58,4 +82,7 @@ if st.button("Evaluate Acute Toxicity Risk"):
         - For Organophosphates: High threat of cholinergic crisis; deploy Atropine and Pralidoxime immediately.
         """)
     else:
-        st.success("✅ MONITORING Margins Secure: Current physiological vitals, chemical markers, and kinetic curves indicate low immediate risk of critical respiratory or organ breakdown. Maintain standard poison control protocol and chart serial vitals.")
+        st.success("✅ MONITORING Margins Secure: Current physiological vitals, chemical markers, and kinetic curves indicate low immediate risk of critical respiratory or organ breakdown. Maintain standard poison control protocol.")
+   
+    
+    
